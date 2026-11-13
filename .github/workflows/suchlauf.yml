@@ -1,0 +1,44 @@
+name: Movacar-Suchlauf
+
+on:
+  schedule:
+    - cron: "23 */3 * * *"   # alle 3 Stunden (UTC), Minute 23 statt 0 wegen Lastspitzen
+  workflow_dispatch: {}       # Knopf "Run workflow" fuer manuellen Start
+
+permissions:
+  contents: write
+
+concurrency:
+  group: suchlauf
+  cancel-in-progress: false
+
+jobs:
+  suche:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Abhaengigkeiten installieren
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Suchlauf
+        run: node crawl.mjs
+
+      - name: Datenstand speichern
+        run: |
+          git config user.name "movacar-bot"
+          git config user.email "movacar-bot@users.noreply.github.com"
+          git add movacar_daten.json
+          if git diff --cached --quiet; then
+            echo "Keine Aenderung."
+          else
+            git commit -m "Datenstand $(date -u +'%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
