@@ -91,15 +91,16 @@
 <main>
 <aside>
   <div class="panel">
-    <button class="primary" id="btnRun">Jetzt aktualisieren</button>
+    <div id="snapInfo" style="font-size:14px;margin-bottom:4px">Datenstand wird geladen …</div>
+    <div class="hint" style="margin:0 0 10px">Wird automatisch alle 3 Stunden aktualisiert.</div>
+    <button id="btnRun" style="width:100%">Selbst live suchen (einige Minuten)</button>
     <div class="progress"><div id="bar"></div></div>
-    <div id="status">Noch keine Suche gelaufen.</div>
+    <div id="status"></div>
     <div class="row" style="margin-top:10px">
       <button id="btnStop" disabled>Abbrechen</button>
       <button id="btnCsv">CSV-Export</button>
     </div>
-    <button id="btnSnap" style="width:100%;margin-top:8px">Datenstand exportieren (für Netlify)</button>
-    <div id="snapInfo" class="hint"></div>
+    <button id="btnSnap" style="width:100%;margin-top:8px">Datenstand exportieren (Datei)</button>
   </div>
 
   <div class="panel">
@@ -134,8 +135,10 @@
       <input type="number" id="rMinH" min="0" value="12"></label>
     <label class="col">höchstens (Tage)
       <input type="number" id="rMaxD" min="0" value="21"></label>
-    <label class="col">Rückfahrt-Start im Umkreis des Ziels (km)
+    <label class="col">Rückfahrt startet höchstens … km vom Abgabeort
       <input type="number" id="rRadius" min="0" value="60"></label>
+    <label class="col">Rückfahrt endet höchstens … km vom Startort (leer = irgendwo in DE)
+      <input type="number" id="rHome" min="0" placeholder="z. B. 150"></label>
     <p class="hint">Annahme: <code>start_date</code> = frühestmögliche Abholung, <code>end_date</code> = späteste Abgabe. Das ist aus den Daten abgeleitet und nicht offiziell bestätigt.</p>
   </div>
 
@@ -288,7 +291,7 @@ const SNAPSHOT_FILE = "movacar_daten.json";
 // Datenstand als Objekt (wird auch vom GitHub-Bot benutzt)
 function buildSnapshot() {
   const geo = {};
-  for (const l of Object.values(state.locations.items)) if (l.country) geo[l.ref] = { country: l.country, lat: l.lat ?? null, lon: l.lon ?? null };
+  for (const l of Object.values(state.locations.items)) if (l.country) geo[l.ref] = { v: l.geoV, country: l.country, lat: l.lat ?? null, lon: l.lon ?? null };
   return {
     format: "movacar-finder-snapshot-1", savedAt: new Date().toISOString(),
     locations: state.locations,
@@ -328,7 +331,7 @@ async function loadSnapshot() {
       if (!cur || needsCountry(cur) || cur.lat == null) state.locations.items[ref] = { ...cur, ...l };
     }
     if (!state.locations.ts || (snap.locations?.ts || 0) > state.locations.ts) { state.locations.ts = snap.locations.ts; state.locations.cc = snap.locations.cc; }
-    for (const [ref, g] of Object.entries(snap.geo || {})) if (!geoCache[ref]) geoCache[ref] = g;
+    for (const [ref, g] of Object.entries(snap.geo || {})) if (!geoCache[ref] && g?.v === GEO_VERSION) geoCache[ref] = g;
     store.set("mc_geo", geoCache);
     if (snapTs > (state.offers.ts || 0)) {
       state.offers = snap.offers;
@@ -337,7 +340,7 @@ async function loadSnapshot() {
       log(`Geteilter Datenstand geladen (Stand ${new Date(snapTs).toLocaleString("de-DE")}).`);
     }
     const age = Math.round((Date.now() - snapTs) / 36e5);
-    $("snapInfo").textContent = `Geteilter Datenstand: ${new Date(snapTs).toLocaleString("de-DE")} (vor ${age < 1 ? "weniger als 1" : age} Std.)`;
+    $("snapInfo").innerHTML = `<b>Stand:</b> ${new Date(snapTs).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} (vor ${age < 1 ? "weniger als 1" : age} Std.)`;
     await saveCache();
   } catch (e) { log("Geteilter Datenstand nicht lesbar: " + e.message, true); }
 }
@@ -624,26 +627,37 @@ function nameCandidates(name) {
 
 // Ohne Server: Open-Meteo-Geocoding direkt aus dem Browser, Ergebnisse im Browser gespeichert
 const geoCache = store.get("mc_geo", {});
+// Version der Ländersuche: ältere Ergebnisse (nur nach Name, ohne Abstandsprüfung) werden neu ermittelt
+const GEO_VERSION = 2;
+const MAX_GEO_KM = 60;
+
 async function geoDirect(l) {
-  if (geoCache[l.ref]) return geoCache[l.ref];
-  const names = nameCandidates(l.name);
-  for (const q of names) {
+  if (geoCache[l.ref]?.v === GEO_VERSION) return geoCache[l.ref];
+  const here = l.lat != null && l.lon != null ? { lat: l.lat, lon: l.lon } : null;
+  for (const q of nameCandidates(l.name)) {
     await sleep(150);
-    const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?" + new URLSearchParams({ name: q, count: 5, language: "de", format: "json" }));
+    const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?" + new URLSearchParams({ name: q, count: 10, language: "de", format: "json" }));
     if (!r.ok) throw new Error("Open-Meteo HTTP " + r.status);
-    const res = ((await r.json()).results || []).filter((x) => isEuropean(String(x.country_code || "").toUpperCase()))
-      .sort((a, b) => (b.population || 0) - (a.population || 0));
+    let res = ((await r.json()).results || []).filter((x) => isEuropean(String(x.country_code || "").toUpperCase()));
+    if (here) {
+      // Movacar liefert Koordinaten: nur Treffer in der Nähe zählen, der nächste gewinnt
+      res = res.map((x) => ({ ...x, km: haversine(here, { lat: x.latitude, lon: x.longitude }) }))
+        .filter((x) => x.km != null && x.km <= MAX_GEO_KM).sort((a, b) => a.km - b.km);
+    } else {
+      res.sort((a, b) => (b.population || 0) - (a.population || 0));
+    }
     if (res[0]?.country_code) {
-      const out = { country: res[0].country_code.toUpperCase(), lat: res[0].latitude, lon: res[0].longitude, source: "open-meteo" };
+      const out = { v: GEO_VERSION, country: res[0].country_code.toUpperCase(), lat: res[0].latitude, lon: res[0].longitude,
+        source: "open-meteo", match: res[0].name, km: res[0].km != null ? Math.round(res[0].km) : null };
       geoCache[l.ref] = out; store.set("mc_geo", geoCache);
       return out;
     }
   }
-  geoCache[l.ref] = { country: null, searched: true }; store.set("mc_geo", geoCache);
+  geoCache[l.ref] = { v: GEO_VERSION, country: null, searched: true }; store.set("mc_geo", geoCache);
   return geoCache[l.ref];
 }
 
-const needsCountry = (l) => l && (!l.country || l.countryGuessed);
+const needsCountry = (l) => l && (!l.country || l.countryGuessed || (l.countrySource === "open-meteo" && l.geoV !== GEO_VERSION));
 const needsGeo = (l) => l && (needsCountry(l) || (l.lat == null && !l.geoTried));
 
 async function resolveCountries(locs, label, withCoords = false) {
@@ -659,11 +673,13 @@ async function resolveCountries(locs, label, withCoords = false) {
       try { r = await geoDirect(l); fails = 0; }
       catch (e) { r = { error: e.message, blocked: ++fails >= 3 }; }
       const item = state.locations.items[l.ref];
-      if (r.lat != null && item.lat == null) { item.lat = r.lat; item.lon = r.lon; item.geoSource = "osm"; }
+      if (r.lat != null && item.lat == null) { item.lat = r.lat; item.lon = r.lon; item.geoSource = "open-meteo"; }
+      if (r.v) item.geoV = r.v;
       if (withCoords) item.geoTried = true;
       if (r.country) {
         if (item.countryGuessed && item.country !== r.country) log(`Land korrigiert: ${l.name} ${item.country} → ${r.country}`);
-        item.country = r.country; item.countryGuessed = false; item.countrySource = r.source || "osm";
+        if (item.country && item.country !== r.country && !item.countryGuessed) log(`Land korrigiert: ${l.name} ${item.country} → ${r.country}`);
+        item.country = r.country; item.countryGuessed = false; item.countrySource = r.source || "open-meteo";
         fixed++;
       } else if (r.blocked) {
         log(`Ortsdienste derzeit gesperrt (${r.error}). Länder-Suche für 1 Stunde pausiert.`, true);
@@ -784,6 +800,7 @@ async function run() {
     await saveCache();
     setProgress(1, 1, `Fertig: ${items.length} Angebote auf ${uniq.length} Strecken, ${newKeys.length} neu · ${new Date().toLocaleString("de-DE")}`);
     log(`Suchlauf fertig: ${items.length} Angebote, ${newKeys.length} neu.`);
+    $("snapInfo").innerHTML = `<b>Stand:</b> ${new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })} (eigene Suche)`;
     notifyNew(items.filter((o) => hadData && newKeys.includes(o.key)));
   } catch (e) {
     setProgress(0, 0, e.message === "abgebrochen" ? "Abgebrochen. Bisherige Ergebnisse bleiben erhalten." : "Fehler: " + e.message);
@@ -818,20 +835,33 @@ function refreshSelect(id, values, fixed, label = (v) => v) {
 
 const isOneEuro = (o) => o.price?.amount === 1 && (o.price.currency || "EUR") === "EUR";
 
+function locGeo(ref, fallback) {
+  const l = state.locations.items[ref];
+  if (l?.lat != null && l?.lon != null) return { lat: l.lat, lon: l.lon };
+  return fallback?.lat != null ? fallback : null;
+}
+
 function sameArea(destOfOut, ret, radius) {
   if (ret.originRef === destOfOut.destRef) return true;
   if (norm(ret.originName) && norm(ret.originName) === norm(destOfOut.destName)) return true;
-  const d = haversine(destOfOut.destGeo, ret.originGeo);
+  const d = haversine(locGeo(destOfOut.destRef, destOfOut.destGeo), locGeo(ret.originRef, ret.originGeo));
   return d != null && d <= radius;
 }
 
 function findReturns(out, returns, oneEuroOnly) {
   const minH = Number($("rMinH").value) || 0, maxD = Number($("rMaxD").value) || 0, radius = Number($("rRadius").value) || 0;
+  const home = Number($("rHome").value) || 0;
+  const startGeo = locGeo(out.originRef, out.originGeo);
   const outStart = parseDate(out.start), outEnd = parseDate(out.end) || outStart;
   if (!outStart) return [];
   return returns.filter((r) => {
     if (oneEuroOnly && !isOneEuro(r)) return false;
     if (!sameArea(out, r, radius)) return false;
+    if (home > 0) {
+      // Rückfahrt muss in der Nähe des ursprünglichen Startorts enden
+      const d = r.destRef === out.originRef ? 0 : haversine(startGeo, locGeo(r.destRef, r.destGeo));
+      if (d == null || d > home) return false;
+    }
     const rs = parseDate(r.start), re = parseDate(r.end) || rs;
     if (!rs) return false;
     // Rückfahrt muss nach frühestmöglicher Ankunft + Mindestaufenthalt noch abholbar sein
@@ -1145,7 +1175,7 @@ function exportCsv() {
 // ---------------------------------------------------------------------------
 // Einstellungen & Start
 // ---------------------------------------------------------------------------
-const settingsIds = ["fVehicle", "fOneEuro", "fReturn", "fFrom", "fTo", "fDateFrom", "fDateTo", "fSort", "rMinH", "rMaxD", "rRadius", "sCountry", "sReturns", "sAuto", "sDe", "sDest"];
+const settingsIds = ["rHome", "fVehicle", "fOneEuro", "fReturn", "fFrom", "fTo", "fDateFrom", "fDateTo", "fSort", "rMinH", "rMaxD", "rRadius", "sCountry", "sReturns", "sAuto", "sDe", "sDest"];
 function saveSettings() {
   const s = {};
   for (const id of settingsIds) { const el = $(id); s[id] = el.type === "checkbox" ? el.checked : el.value; }
@@ -1216,7 +1246,7 @@ if (sanitizeCountries()) await saveCache();
 syncCountries();
 renderSamples();
 setView(view);
-if (state.offers.ts) $("status").textContent = `Letzter Lauf: ${new Date(state.offers.ts).toLocaleString("de-DE")} · ${state.offers.items.length} Angebote`;
+if (!$("snapInfo").innerHTML.startsWith("<b>")) $("snapInfo").textContent = state.offers.ts ? `Eigener Stand: ${new Date(state.offers.ts).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}` : "Noch kein Datenstand vorhanden.";
 render();
 })();
 </script>
