@@ -1,0 +1,8 @@
+{
+  "name": "movacar-1euro-finder",
+  "private": true,
+  "type": "module",
+  "description": "Automatischer Suchlauf fuer den Movacar 1-Euro-Finder",
+  "scripts": { "crawl": "node crawl.mjs" },
+  "dependencies": { "playwright": "1.65.0" }
+}

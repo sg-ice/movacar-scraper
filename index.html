@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movacar 1-€-Finder</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E %3Crect width='64' height='64' rx='14' fill='%23c2410c'/%3E %3Cpath d='M10 40v-14a5 5 0 0 1 5-5h22l9 8h5a4 4 0 0 1 4 4v7z' fill='%23fff'/%3E %3Cpath d='M16 26h9v6h-9zM28 26h6l5 6h-11z' fill='%23c2410c'/%3E %3Ccircle cx='20' cy='42' r='5' fill='%231d1b16' stroke='%23fff' stroke-width='2'/%3E %3Ccircle cx='45' cy='42' r='5' fill='%231d1b16' stroke='%23fff' stroke-width='2'/%3E %3Ctext x='32' y='60' text-anchor='middle' font-family='Segoe UI, Arial, sans-serif' font-weight='800' font-size='13' fill='%23fff'%3E1 %E2%82%AC%3C/text%3E %3C/svg%3E">
+<style>
+  :root {
+    --bg: #f4f1ea; --card: #fffdf8; --ink: #1d1b16; --muted: #6b665a; --line: #e2dccd;
+    --accent: #c2410c; --accent-soft: #fde6d8; --ok: #15803d; --ok-soft: #dcfce7; --warn: #a16207;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 22px 28px 12px; border-bottom: 1px solid var(--line); background: var(--card); }
+  h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 20px 28px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  aside { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100vh - 24px); overflow-y: auto; padding-right: 4px; }
+  @media (max-width: 900px) { aside { position: static; max-height: none; overflow: visible; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  label { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 14px; }
+  label.col { flex-direction: column; align-items: stretch; gap: 3px; }
+  input[type=text], input[type=date], input[type=number], select, textarea {
+    font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%;
+  }
+  textarea { font-size: 12px; min-height: 70px; }
+  button { font: inherit; cursor: pointer; border-radius: 7px; border: 1px solid var(--line); background: #fff; padding: 7px 12px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; width: 100%; padding: 10px; }
+  button.primary:disabled { opacity: .55; cursor: default; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; min-width: 0; }
+  .progress { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #status { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1.2em; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--muted); }
+  .stat b { color: var(--ink); font-size: 16px; margin-right: 4px; }
+  .deal { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .deal.new { border-left: 4px solid var(--accent); }
+  .route { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 18px; font-weight: 600; }
+  .route .arrow { color: var(--accent); }
+  .price { margin-left: auto; font-size: 18px; color: var(--accent); }
+  .station { font-size: 12px; color: var(--muted); }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 14px; }
+  .facts div span { color: var(--muted); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); vertical-align: middle; }
+  .clist label { margin: 2px 0; font-size: 13px; }
+  .clist label.zero { color: #a8a29e; }
+  .clist .n { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .badge.land { background: #e7e5e4; color: #292524; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .returns { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .returns h3 { font-size: 13px; margin: 0 0 6px; color: var(--ok); }
+  .ret { font-size: 13px; padding: 4px 0; }
+  details { margin-top: 8px; font-size: 12px; }
+  details pre { max-height: 260px; overflow: auto; background: #f7f5ef; padding: 8px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 10px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  #log { font: 11px/1.4 Consolas, monospace; max-height: 180px; overflow: auto; background: #f7f5ef; border-radius: 6px; padding: 6px; white-space: pre-wrap; }
+  .err { color: #b91c1c; }
+  a { color: var(--accent); }
+  table.deals { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 13.5px; }
+  table.deals th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line); background: #f7f5ef; cursor: pointer; white-space: nowrap; position: sticky; top: 0; user-select: none; }
+  table.deals th.sorted { color: var(--ink); }
+  table.deals td { padding: 7px 10px; border-bottom: 1px solid #eee8da; vertical-align: top; }
+  table.deals tr.drow { cursor: pointer; }
+  table.deals tr.drow:hover td { background: #faf6ec; }
+  table.deals tr.new td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  table.deals td.num { text-align: right; white-space: nowrap; }
+  table.deals td.dt { white-space: nowrap; }
+  table.deals tr.detail td { background: #faf8f2; font-size: 13px; }
+  .tablewrap { max-height: calc(100vh - 170px); overflow: auto; border-radius: 10px; }
+  .views { display: flex; gap: 6px; margin-bottom: 12px; }
+  .views button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  #map { height: calc(100vh - 170px); min-height: 420px; border-radius: 10px; border: 1px solid var(--line); }
+  #mapNote { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .leaflet-popup-content { font: 13px/1.4 "Segoe UI", system-ui, sans-serif; }
+  .leaflet-popup-content b { font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Movacar <span>1-€</span>-Finder</h1>
+  <div class="sub">Alle Überführungen ab Deutschland ins gewählte Zielland, optional mit passender Rückfahrt. Liest nur öffentliche Angebotsdaten; gebucht wird auf movacar.com.</div>
+</header>
+
+<main>
+<aside>
+  <div class="panel">
+    <button class="primary" id="btnRun">Jetzt aktualisieren</button>
+    <div class="progress"><div id="bar"></div></div>
+    <div id="status">Noch keine Suche gelaufen.</div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnStop" disabled>Abbrechen</button>
+      <button id="btnCsv">CSV-Export</button>
+    </div>
+    <button id="btnSnap" style="width:100%;margin-top:8px">Datenstand exportieren (für Netlify)</button>
+    <div id="snapInfo" class="hint"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Filter</h2>
+    <label><input type="checkbox" id="fOneEuro" checked> nur 1-€-Angebote</label>
+    <label><input type="checkbox" id="fReturn"> nur mit möglicher Rückfahrt</label>
+    <label class="col">Fahrzeug
+      <select id="fVehicle"><option value="">alle Fahrzeuge</option><option value="camper">nur Camper</option></select></label>
+    <div style="margin:8px 0 4px;font-size:14px">Zielländer
+      <span style="float:right;font-size:12px"><a href="#" id="cAll">Auswahl aufheben</a></span>
+      <div class="hint" style="margin:0">nichts angehakt = alle Länder</div></div>
+    <div id="fCountries" class="clist"></div>
+    <label class="col">Startort enthält <input type="text" id="fFrom" placeholder="z. B. Berlin"></label>
+    <label class="col">Zielort enthält <input type="text" id="fTo" placeholder="z. B. Valencia"></label>
+    <div class="row">
+      <label class="col">Abholung ab <input type="date" id="fDateFrom"></label>
+      <label class="col">bis <input type="date" id="fDateTo"></label>
+    </div>
+    <label class="col">Sortierung
+      <select id="fSort">
+        <option value="start">Abholdatum</option>
+        <option value="freekm">Freikilometer (absteigend)</option>
+        <option value="from">Startort</option>
+        <option value="new">Neueste zuerst</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="panel">
+    <h2>Rückfahrt-Abgleich</h2>
+    <label class="col">Aufenthalt am Ziel: mindestens (Stunden)
+      <input type="number" id="rMinH" min="0" value="12"></label>
+    <label class="col">höchstens (Tage)
+      <input type="number" id="rMaxD" min="0" value="21"></label>
+    <label class="col">Rückfahrt-Start im Umkreis des Ziels (km)
+      <input type="number" id="rRadius" min="0" value="60"></label>
+    <p class="hint">Annahme: <code>start_date</code> = frühestmögliche Abholung, <code>end_date</code> = späteste Abgabe. Das ist aus den Daten abgeleitet und nicht offiziell bestätigt.</p>
+  </div>
+
+  <div class="panel">
+    <details>
+      <summary><b>Einstellungen</b></summary>
+      <label class="col">Zielland
+        <select id="sCountry">
+          <option value="INT" selected>international (alle Länder außer DE)</option>
+          <option value="ES">Spanien</option>
+          <option value="PT">Portugal</option>
+          <option value="FR">Frankreich</option>
+          <option value="IT">Italien</option>
+        </select></label>
+      <label><input type="checkbox" id="sReturns" checked> Rückfahrten mitsuchen</label>
+      <label class="col">Automatisch aktualisieren
+        <select id="sAuto">
+          <option value="0">aus</option>
+          <option value="60">stündlich</option>
+          <option value="180">alle 3 Stunden</option>
+          <option value="360">alle 6 Stunden</option>
+        </select></label>
+      <p class="hint">Läuft nur, solange dieser Tab offen ist. Bei neuen Angeboten gibt es eine Browser-Benachrichtigung.</p>
+      <label class="col">Suchbegriffe Startorte Deutschland
+        <textarea id="sDe"></textarea></label>
+      <label class="col">Suchbegriffe Zielland (für Rückfahrten)
+        <textarea id="sDest"></textarea></label>
+      <p class="hint">Die Orte werden über die Movacar-Ortssuche ermittelt und 7 Tage zwischengespeichert.</p>
+      <div class="row" style="margin-top:8px">
+        <button id="btnGeo">Länder &amp; Koordinaten nachschlagen</button>
+        <button id="btnResetLoc">Ortsliste neu laden</button>
+        <button id="btnResetAll">Alles zurücksetzen</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <details>
+      <summary><b>Protokoll &amp; Rohdaten</b></summary>
+      <button id="btnDiag" style="width:100%;margin-bottom:8px">Diagnose in Zwischenablage kopieren</button>
+      <div id="log"></div>
+      <p class="hint">Falls Angebote fehlen oder falsch angezeigt werden: Rohantworten unten kopieren und Claude schicken.</p>
+      <div id="samples"></div>
+    </details>
+  </div>
+</aside>
+
+<section>
+  <div class="stats" id="stats"></div>
+  <div class="views">
+    <button id="vTable" class="on">Tabelle</button>
+    <button id="vList">Kacheln</button>
+    <button id="vMap">Karte</button>
+    <label id="mReturnsL" style="margin-left:auto;font-size:13px"><input type="checkbox" id="mReturns" checked> Rückfahrten auf der Karte</label>
+  </div>
+  <div id="list"></div>
+  <div id="tableWrap" class="tablewrap" style="display:none"></div>
+  <div id="mapWrap" style="display:none"><div id="map"></div><div id="mapNote"></div></div>
+</section>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Konfiguration
+// ---------------------------------------------------------------------------
+// Movacar-API (inoffiziell, erlaubt Abfragen direkt aus dem Browser)
+const API = "https://crowd-api-production-615013621295.europe-west1.run.app";
+const LOC_CACHE_DAYS = 7;
+
+const DEFAULT_DE = `Berlin, Hamburg, München, Köln, Frankfurt, Stuttgart, Düsseldorf, Leipzig, Dortmund, Essen,
+Bremen, Dresden, Hannover, Nürnberg, Duisburg, Bochum, Wuppertal, Bielefeld, Bonn, Münster,
+Mannheim, Karlsruhe, Augsburg, Wiesbaden, Mönchengladbach, Aachen, Braunschweig, Kiel, Chemnitz, Halle,
+Magdeburg, Freiburg, Krefeld, Mainz, Lübeck, Erfurt, Rostock, Kassel, Potsdam, Saarbrücken,
+Ludwigshafen, Oldenburg, Osnabrück, Heidelberg, Darmstadt, Regensburg, Paderborn, Ingolstadt, Würzburg, Ulm,
+Wolfsburg, Göttingen, Hildesheim, Koblenz, Trier, Jena, Marburg, Gießen, Fulda, Bamberg,
+Bayreuth, Passau, Rosenheim, Kempten, Konstanz, Flensburg, Schwerin, Cottbus, Siegen, Kaiserslautern,
+Memmingen, Weeze, Hahn, Friedrichshafen, Dortmund Flughafen, Sylt, Usedom`;
+const DEFAULT_DEST = {
+  ES: `Barcelona, Madrid, Valencia, Bilbao, Málaga, Sevilla, Alicante, Girona, Zaragoza, Murcia,
+Granada, San Sebastián, Santander, Vigo, A Coruña, Tarragona, Reus, Castellón, Almería, Valladolid, Oviedo, Pamplona, Palma`,
+  PT: `Lissabon, Porto, Faro, Coimbra, Braga`,
+  FR: `Paris, Lyon, Marseille, Nizza, Toulouse, Bordeaux, Nantes, Lille, Straßburg, Montpellier, Genf`,
+  IT: `Rom, Mailand, Venedig, Florenz, Bologna, Turin, Neapel, Bergamo, Verona, Pisa`,
+  INT: ``,
+};
+
+const COUNTRY_NAME = { DE: "Deutschland", ES: "Spanien", PT: "Portugal", FR: "Frankreich", IT: "Italien", AT: "Österreich",
+  CH: "Schweiz", BE: "Belgien", NL: "Niederlande", LU: "Luxemburg", DK: "Dänemark", PL: "Polen", CZ: "Tschechien",
+  HR: "Kroatien", SI: "Slowenien", HU: "Ungarn", GB: "Großbritannien", IE: "Irland", SE: "Schweden", NO: "Norwegen", "?": "Land unbekannt" };
+const countryName = (cc) => COUNTRY_NAME[cc] || cc || "Land unbekannt";
+
+// Ländernamen -> ISO2
+const COUNTRY = {
+  de: "DE", deu: "DE", germany: "DE", deutschland: "DE",
+  es: "ES", esp: "ES", spain: "ES", spanien: "ES", "españa": "ES", espana: "ES",
+  pt: "PT", prt: "PT", portugal: "PT",
+  fr: "FR", fra: "FR", france: "FR", frankreich: "FR",
+  it: "IT", ita: "IT", italy: "IT", italien: "IT", italia: "IT",
+  at: "AT", aut: "AT", austria: "AT", "österreich": "AT",
+  ch: "CH", che: "CH", switzerland: "CH", schweiz: "CH",
+  be: "BE", bel: "BE", belgium: "BE", belgien: "BE",
+  nl: "NL", nld: "NL", netherlands: "NL", niederlande: "NL",
+};
+
+// ---------------------------------------------------------------------------
+// Speicher (localStorage, abgesichert)
+// ---------------------------------------------------------------------------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { log("Speichern fehlgeschlagen: " + e.message, true); } },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+let state = {
+  locations: store.get("mc_locations", { ts: 0, items: {} }),   // ref -> location
+  offers: store.get("mc_offers", { ts: 0, items: [] }),          // Liste normalisierter Angebote
+  firstSeen: store.get("mc_seen", {}),                           // offerKey -> ISO-Zeit
+  lastRunKeys: store.get("mc_lastnew", []),                       // im letzten Lauf neu
+};
+let samples = store.get("mc_samples", {});
+
+// Browser-Speicher (localStorage): bei Platzmangel ohne Rohdaten speichern
+function saveLocal(withRaw) {
+  try {
+    const offers = withRaw ? state.offers : { ...state.offers, items: state.offers.items.map(({ raw, ...o }) => o) };
+    localStorage.setItem("mc_locations", JSON.stringify(state.locations));
+    localStorage.setItem("mc_offers", JSON.stringify(offers));
+    localStorage.setItem("mc_seen", JSON.stringify(state.firstSeen));
+    localStorage.setItem("mc_lastnew", JSON.stringify(state.lastRunKeys));
+    if (withRaw) localStorage.setItem("mc_samples", JSON.stringify(samples));
+    return true;
+  } catch (e) {
+    if (!withRaw) log("Browser-Speicher voll – Daten nur bis zum Neuladen verfügbar.", true);
+    return false;
+  }
+}
+
+async function saveCache() {
+  if (!saveLocal(true)) saveLocal(false);
+}
+
+// Geteilter Datenstand. Quellen (der neueste gewinnt):
+//  1) REMOTE_DATA_URL – automatisch alle 3 h von GitHub Actions aktualisiert
+//  2) movacar_daten.json neben index.html (manueller Export, optional)
+// >>> Nach dem Anlegen des GitHub-Repos hier die Rohdaten-Adresse eintragen: <<<
+const REMOTE_DATA_URL = "";
+const SNAPSHOT_FILE = "movacar_daten.json";
+
+// Datenstand als Objekt (wird auch vom GitHub-Bot benutzt)
+function buildSnapshot() {
+  const geo = {};
+  for (const l of Object.values(state.locations.items)) if (l.country) geo[l.ref] = { country: l.country, lat: l.lat ?? null, lon: l.lon ?? null };
+  return {
+    format: "movacar-finder-snapshot-1", savedAt: new Date().toISOString(),
+    locations: state.locations,
+    offers: { ...state.offers, items: (state.offers.items || []).map(({ raw, ...o }) => o) },
+    firstSeen: state.firstSeen, lastRunKeys: state.lastRunKeys, geo,
+  };
+}
+
+function exportSnapshot() {
+  const data = buildSnapshot();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
+  a.download = SNAPSHOT_FILE;
+  document.body.appendChild(a); a.click(); a.remove();
+  log(`Datenstand exportiert (${data.offers.items.length} Angebote). Datei neben index.html legen und neu hochladen.`);
+}
+
+async function fetchSnapshot(url) {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) return null;
+    const snap = await r.json();
+    return snap?.format === "movacar-finder-snapshot-1" ? snap : null;
+  } catch { return null; }
+}
+
+async function loadSnapshot() {
+  const urls = [REMOTE_DATA_URL, location.protocol === "file:" ? "" : SNAPSHOT_FILE].filter(Boolean);
+  const snaps = (await Promise.all(urls.map(fetchSnapshot))).filter(Boolean);
+  if (!snaps.length) return;
+  const snap = snaps.sort((a, b) => (b.offers?.ts || 0) - (a.offers?.ts || 0))[0];
+  try {
+    const snapTs = snap.offers?.ts || 0;
+    // Orte und Länder immer übernehmen (spart Abfragen), Angebote nur, wenn neuer als die eigenen
+    for (const [ref, l] of Object.entries(snap.locations?.items || {})) {
+      const cur = state.locations.items[ref];
+      if (!cur || needsCountry(cur) || cur.lat == null) state.locations.items[ref] = { ...cur, ...l };
+    }
+    if (!state.locations.ts || (snap.locations?.ts || 0) > state.locations.ts) { state.locations.ts = snap.locations.ts; state.locations.cc = snap.locations.cc; }
+    for (const [ref, g] of Object.entries(snap.geo || {})) if (!geoCache[ref]) geoCache[ref] = g;
+    store.set("mc_geo", geoCache);
+    if (snapTs > (state.offers.ts || 0)) {
+      state.offers = snap.offers;
+      state.firstSeen = { ...snap.firstSeen, ...state.firstSeen };
+      state.lastRunKeys = snap.lastRunKeys || [];
+      log(`Geteilter Datenstand geladen (Stand ${new Date(snapTs).toLocaleString("de-DE")}).`);
+    }
+    const age = Math.round((Date.now() - snapTs) / 36e5);
+    $("snapInfo").textContent = `Geteilter Datenstand: ${new Date(snapTs).toLocaleString("de-DE")} (vor ${age < 1 ? "weniger als 1" : age} Std.)`;
+    await saveCache();
+  } catch (e) { log("Geteilter Datenstand nicht lesbar: " + e.message, true); }
+}
+
+let abort = false;
+let running = false;
+
+// ---------------------------------------------------------------------------
+// Hilfsfunktionen
+// ---------------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const isUlid = (s) => typeof s === "string" && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(s);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function log(msg, isErr = false) {
+  const el = $("log");
+  const line = document.createElement("div");
+  if (isErr) line.className = "err";
+  line.textContent = new Date().toLocaleTimeString("de-DE") + "  " + msg;
+  el.prepend(line);
+  while (el.childNodes.length > 400) el.lastChild.remove();
+}
+
+// Movacar fährt nur in Europa: alles andere gilt als unbekannt
+const EUROPE_CC = new Set("DE ES FR IT PT AT CH NL BE LU DK PL CZ SK HR SI HU GB IE SE NO FI GR RO BG EE LV LT".split(" "));
+const isEuropean = (cc) => EUROPE_CC.has(cc);
+
+function countryCode(v) {
+  if (!v) return null;
+  if (typeof v === "object") v = v.code || v.iso || v.iso2 || v.alpha2 || v.name;
+  const k = String(v).trim().toLowerCase();
+  const cc = COUNTRY[k] || (k.length === 2 ? k.toUpperCase() : null);
+  return isEuropean(cc) ? cc : null;
+}
+
+function haversine(a, b) {
+  if (a?.lat == null || b?.lat == null) return null;
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+function parseDate(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+const fmtDT = (d) => d ? d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "–";
+const fmtD = (d) => d ? d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }) : "–";
+
+let lastDirectCall = 0;
+async function api(path, params, sampleKey) {
+  // Movacar schonen: mindestens 0,6 s zwischen zwei Anfragen
+  const wait = lastDirectCall + 600 - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastDirectCall = Date.now();
+  const q = new URLSearchParams(params);
+  const url = API + path + "?" + q.toString();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/vnd.api+json" } });
+      if (res.status === 429 || res.status >= 500) {
+        log(`HTTP ${res.status} bei ${path} – neuer Versuch`, true);
+        await sleep(2000 * (attempt + 1));
+        continue;
+      }
+      const text = await res.text();
+      if (!res.ok) { log(`HTTP ${res.status} bei ${path}?${new URLSearchParams(params)}: ${text.slice(0, 160)}`, true); return null; }
+      const json = JSON.parse(text);
+      if (sampleKey && !samples[sampleKey]) { samples[sampleKey] = { url: path + "?" + new URLSearchParams(params), text: text.slice(0, 20000) }; renderSamples(); }
+      return json;
+    } catch (e) {
+      log(`Fehler bei ${path}: ${e.message}`, true);
+      if (location.protocol === "file:") log("Hinweis: Als lokale Datei geöffnet kann der Browser Anfragen blockieren – bitte die Netlify-Seite nutzen.", true);
+      await sleep(1500);
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Antworten auswerten (JSON:API, tolerant gegenüber Feldnamen)
+// ---------------------------------------------------------------------------
+function allObjects(json) {
+  if (!json) return [];
+  const data = Array.isArray(json.data) ? json.data : json.data ? [json.data] : Array.isArray(json) ? json : [];
+  return data.concat(Array.isArray(json.included) ? json.included : []);
+}
+
+const TZ_COUNTRY = { Berlin: "DE", Busingen: "DE", Madrid: "ES", Paris: "FR", Rome: "IT", Lisbon: "PT", Vienna: "AT", Zurich: "CH",
+  Brussels: "BE", Amsterdam: "NL", Luxembourg: "LU", Copenhagen: "DK", Warsaw: "PL", Prague: "CZ", Bratislava: "SK", Zagreb: "HR",
+  Ljubljana: "SI", Budapest: "HU", London: "GB", Dublin: "IE", Stockholm: "SE", Oslo: "NO", Helsinki: "FI", Athens: "GR" };
+
+// Sucht in beliebig verschachtelten Attributen nach Länderangaben oder einer europäischen Zeitzone.
+function deepCountry(a, depth = 0) {
+  if (!a || typeof a !== "object" || depth > 3) return null;
+  for (const [k, v] of Object.entries(a)) {
+    if (/^(country|country_?code|country_?iso|iso_?country|country_?name|country_?alpha2)$/i.test(k)) { const c = countryCode(v); if (c) return c; }
+    if (typeof v === "string") { const m = /^Europe\/([A-Za-z_]+)$/.exec(v); if (m && TZ_COUNTRY[m[1]]) return TZ_COUNTRY[m[1]]; }
+  }
+  for (const v of Object.values(a)) if (v && typeof v === "object") { const c = deepCountry(v, depth + 1); if (c) return c; }
+  return null;
+}
+
+function asLocation(obj, idx) {
+  if (!obj || typeof obj !== "object") return null;
+  const a = obj.attributes || obj;
+  const ref = a.reference || a.location_reference || a.ref || (isUlid(obj.id) ? obj.id : null);
+  if (!ref || !isUlid(ref)) return null;
+  if (a.start_date || a.offer_id) return null; // ist ein Angebot
+  const name = a.alternative_city || a.city || a.name || a.display_name || a.title || a.label || a.code;
+  const lat = parseFloat(a.latitude ?? a.lat ?? a.coordinates?.lat ?? a.location?.lat);
+  const lon = parseFloat(a.longitude ?? a.lng ?? a.lon ?? a.coordinates?.lng ?? a.coordinates?.lon ?? a.location?.lng);
+  return {
+    ref, name: name || ref, type: obj.type || null,
+    station: a.name && a.name !== name ? a.name : (a.address || null),
+    country: countryCode(a.country ?? a.country_code ?? a.countryCode ?? a.country_iso ?? a.country_name) || relCountry(obj, idx) || deepCountry(a),
+    lat: isFinite(lat) ? lat : null, lon: isFinite(lon) ? lon : null,
+  };
+}
+
+function relCountry(obj, idx) {
+  const d = obj.relationships?.country?.data;
+  if (!d) return null;
+  const inc = idx?.[d.type + ":" + d.id];
+  return countryCode(inc?.attributes?.iso_code ?? inc?.attributes?.code ?? inc?.attributes?.alpha2 ?? inc?.attributes?.name ?? d.id);
+}
+function indexIncluded(json) { const idx = {}; for (const it of json?.included || []) idx[it.type + ":" + it.id] = it; return idx; }
+
+function rememberLocation(loc, hintCountry) {
+  if (!loc) return null;
+  const cur = state.locations.items[loc.ref] || {};
+  const merged = { ...cur, ...Object.fromEntries(Object.entries(loc).filter(([, v]) => v != null)) };
+  if (loc.country) { merged.countryGuessed = false; merged.countrySource = merged.countrySource && cur.country === loc.country ? merged.countrySource : "movacar"; }
+  if (!merged.country && hintCountry) merged.country = hintCountry, merged.countryGuessed = true;
+  state.locations.items[loc.ref] = merged;
+  return merged;
+}
+
+function relId(item, ...names) {
+  for (const n of names) {
+    const d = item.relationships?.[n]?.data;
+    if (d) return { id: String(d.id), type: d.type };
+  }
+  return null;
+}
+
+function parsePrice(attrs, priceRel, includedIdx) {
+  // 1) Preis-Objekt in "included"
+  if (priceRel) {
+    const inc = includedIdx[priceRel.type + ":" + priceRel.id];
+    const a = inc?.attributes;
+    if (a) {
+      if (a.amount_in_cents != null || a.cents != null) return { amount: Number(a.amount_in_cents ?? a.cents) / 100, currency: a.currency || "EUR", raw: priceRel.id };
+    }
+    // 2) ID nach Muster "100-EUR" (Cent-Betrag + Währung)
+    const m = /^(\d+)-([A-Z]{3})$/.exec(priceRel.id);
+    if (m) return { amount: Number(m[1]) / 100, currency: m[2], raw: priceRel.id };
+    if (a?.amount != null) return { amount: Number(a.amount), currency: a.currency || "EUR", raw: priceRel.id };
+  }
+  // 3) Preis direkt am Angebot
+  const p = attrs.price ?? attrs.base_price ?? attrs.amount;
+  if (p != null && typeof p !== "object") return { amount: Number(p), currency: attrs.currency || "EUR", raw: String(p) };
+  if (p && typeof p === "object") {
+    if (p.cents != null || p.amount_in_cents != null) return { amount: Number(p.cents ?? p.amount_in_cents) / 100, currency: p.currency || "EUR", raw: JSON.stringify(p) };
+    if (p.amount != null) return { amount: Number(p.amount), currency: p.currency || "EUR", raw: JSON.stringify(p) };
+  }
+  return { amount: null, currency: null, raw: null };
+}
+
+function parseOffers(json, queryOrigin, queryDest) {
+  const included = Array.isArray(json?.included) ? json.included : [];
+  const idx = {};
+  for (const it of included) idx[it.type + ":" + it.id] = it;
+  const data = Array.isArray(json?.data) ? json.data : json?.data ? [json.data] : [];
+  const out = [];
+  for (const item of data) {
+    const a = item.attributes || {};
+    if (item.type && item.type !== "offer" && !a.start_date) continue;
+    const oRel = relId(item, "origin", "origin_station", "pickup_station");
+    const dRel = relId(item, "destination", "destination_station", "return_station");
+    const oSt = oRel ? asLocation(idx[oRel.type + ":" + oRel.id], idx) || idx[oRel.type + ":" + oRel.id]?.attributes : null;
+    const dSt = dRel ? asLocation(idx[dRel.type + ":" + dRel.id], idx) || idx[dRel.type + ":" + dRel.id]?.attributes : null;
+    const price = parsePrice(a, relId(item, "base_price", "price"), idx);
+    const qo = state.locations.items[queryOrigin] || {};
+    const qd = state.locations.items[queryDest] || {};
+    const pickStation = (st) => st ? (st.station || st.name || st.city || null) : null;
+    out.push({
+      key: String(a.offer_id || item.id || a.refkey),
+      offerId: a.offer_id || item.id, refkey: a.refkey || null,
+      originRef: queryOrigin, destRef: queryDest,
+      originName: qo.name || oSt?.name || "?", destName: qd.name || dSt?.name || "?",
+      originStation: pickStation(oSt), destStation: pickStation(dSt),
+      originCountry: qo.country || oSt?.country || null, destCountry: qd.country || dSt?.country || null,
+      originGeo: { lat: oSt?.lat ?? qo.lat ?? null, lon: oSt?.lon ?? qo.lon ?? null },
+      destGeo: { lat: dSt?.lat ?? qd.lat ?? null, lon: dSt?.lon ?? qd.lon ?? null },
+      start: a.start_date || a.pickup_date || a.available_from || null,
+      end: a.end_date || a.return_date || a.available_until || null,
+      validUntil: a.valid_until || null,
+      latestPickup: a.latest_pickup ?? null,
+      distanceKm: a.distance != null ? Math.round(Number(a.distance) / (Number(a.distance) > 5000 ? 1000 : 1)) : null,
+      freeKm: a.free_km ?? a.included_km ?? null,
+      vehicle: [a.make, a.model].filter(Boolean).join(" ") || a.vehicle_category_name || a.vehicle_name || null,
+      category: a.vehicle_category_name || a.category || null,
+      minAge: a.min_drivers_age ?? a.minimum_age ?? null,
+      minLicence: a.min_licence_age ?? null,
+      price,
+      raw: item,
+    });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Suchlauf
+// ---------------------------------------------------------------------------
+function terms(text) { return text.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean); }
+
+function setProgress(done, total, msg) {
+  $("bar").style.width = total ? Math.min(100, (100 * done) / total).toFixed(1) + "%" : "0";
+  $("status").textContent = msg;
+}
+
+async function discoverLocations(list, hintCountry, label) {
+  let i = 0;
+  for (const t of list) {
+    if (abort) return;
+    setProgress(++i, list.length, `Orte suchen (${label}): ${t}`);
+    const json = await api("/v1/locations", { name: t, language: "de" }, "locations");
+    const idx = indexIncluded(json);
+    const found = allObjects(json).map((o) => asLocation(o, idx)).filter(Boolean);
+    for (const loc of found) rememberLocation(loc, null);
+    // Ortssuche liefert evtl. kein Land: dann gilt der Ort als im gesuchten Land,
+    // wenn der Name zum Suchbegriff passt.
+    for (const loc of found) {
+      const l = state.locations.items[loc.ref];
+      if (!l.country && norm(l.name).includes(norm(t).split(" ")[0])) { l.country = hintCountry; l.countryGuessed = true; }
+    }
+  }
+}
+
+async function destinationsFrom(originRef) {
+  const json = await api("/v1/locations/offers", { locale: "de", origin_reference: originRef }, "locations_offers");
+  const objs = allObjects(json);
+  const idx = indexIncluded(json);
+  const dests = [];
+  const directOffers = [];
+  for (const o of objs) {
+    if (o?.attributes?.start_date) { directOffers.push(o); continue; }
+    const loc = asLocation(o, idx);
+    if (loc && loc.ref !== originRef) {
+      const l = rememberLocation(loc);
+      if (!l.country) l.country = guessCountryByName(l.name);
+      dests.push(l);
+    }
+  }
+  return { dests, directOffers: directOffers.length ? parseOffers({ data: directOffers, included: json.included }, originRef, null) : [] };
+}
+
+// Falls die API kein Land liefert: über die Suchbegriffslisten zuordnen.
+function guessCountryByName(name) {
+  const n = norm(name);
+  if (!n) return null;
+  const hit = (list) => terms(list).some((t) => { const k = norm(t); return k && (n === k || n.startsWith(k + " ") || n.includes(" " + k)); });
+  if (hit($("sDe").value)) return "DE";
+  const cc = $("sCountry").value;
+  if (cc !== "INT" && hit($("sDest").value)) return cc;
+  return null;
+}
+
+// "Eschenburg / Marburg (Hessen)" -> ["Eschenburg", "Marburg", "Hessen"]
+function nameCandidates(name) {
+  const n = String(name || "");
+  const inner = [...n.matchAll(/\((.*?)\)/g)].map((m) => m[1]);
+  const outer = n.replace(/\s*\(.*?\)/g, "");
+  return [...new Set([outer.trim(), ...outer.split(/\s*[\/,|]\s*|\s+-\s+/), ...inner].map((x) => x.trim()).filter((x) => x.length > 1))];
+}
+
+// Ohne Server: Open-Meteo-Geocoding direkt aus dem Browser, Ergebnisse im Browser gespeichert
+const geoCache = store.get("mc_geo", {});
+async function geoDirect(l) {
+  if (geoCache[l.ref]) return geoCache[l.ref];
+  const names = nameCandidates(l.name);
+  for (const q of names) {
+    await sleep(150);
+    const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?" + new URLSearchParams({ name: q, count: 5, language: "de", format: "json" }));
+    if (!r.ok) throw new Error("Open-Meteo HTTP " + r.status);
+    const res = ((await r.json()).results || []).filter((x) => isEuropean(String(x.country_code || "").toUpperCase()))
+      .sort((a, b) => (b.population || 0) - (a.population || 0));
+    if (res[0]?.country_code) {
+      const out = { country: res[0].country_code.toUpperCase(), lat: res[0].latitude, lon: res[0].longitude, source: "open-meteo" };
+      geoCache[l.ref] = out; store.set("mc_geo", geoCache);
+      return out;
+    }
+  }
+  geoCache[l.ref] = { country: null, searched: true }; store.set("mc_geo", geoCache);
+  return geoCache[l.ref];
+}
+
+const needsCountry = (l) => l && (!l.country || l.countryGuessed);
+const needsGeo = (l) => l && (needsCountry(l) || (l.lat == null && !l.geoTried));
+
+async function resolveCountries(locs, label, withCoords = false) {
+  let fails = 0;
+  const need = withCoords ? needsGeo : needsCountry;
+  const todo = [...new Map(locs.filter(need).map((l) => [l.ref, l])).values()];
+  let i = 0, fixed = 0;
+  for (const l of todo) {
+    if (abort) return;
+    setProgress(++i, todo.length, `Land ermitteln (${label}): ${l.name} (${i}/${todo.length})`);
+    try {
+      let r;
+      try { r = await geoDirect(l); fails = 0; }
+      catch (e) { r = { error: e.message, blocked: ++fails >= 3 }; }
+      const item = state.locations.items[l.ref];
+      if (r.lat != null && item.lat == null) { item.lat = r.lat; item.lon = r.lon; item.geoSource = "osm"; }
+      if (withCoords) item.geoTried = true;
+      if (r.country) {
+        if (item.countryGuessed && item.country !== r.country) log(`Land korrigiert: ${l.name} ${item.country} → ${r.country}`);
+        item.country = r.country; item.countryGuessed = false; item.countrySource = r.source || "osm";
+        fixed++;
+      } else if (r.blocked) {
+        log(`Ortsdienste derzeit gesperrt (${r.error}). Länder-Suche für 1 Stunde pausiert.`, true);
+        break;
+      } else if (r.error) log(`Land für ${l.name} nicht ermittelbar: ${r.error}`, true);
+    } catch (e) { log(`Länder-Abfrage fehlgeschlagen: ${e.message}`, true); }
+  }
+  if (todo.length) log(`${fixed} von ${todo.length} Ländern ermittelt (${label}).`);
+}
+
+// Falsch zugeordnete (nicht-europäische) Länder verwerfen, damit sie neu ermittelt werden
+function sanitizeCountries() {
+  let n = 0;
+  for (const l of Object.values(state.locations.items)) {
+    if (l.country && !isEuropean(l.country)) { log(`Unplausibles Land verworfen: ${l.name} (${l.country})`); l.country = null; l.countryGuessed = false; l.lat = l.geoSource ? null : l.lat; l.lon = l.geoSource ? null : l.lon; l.geoTried = false; n++; }
+  }
+  for (const [ref, g] of Object.entries(geoCache)) if (g?.country && !isEuropean(g.country)) delete geoCache[ref];
+  store.set("mc_geo", geoCache);
+  for (const o of state.offers.items || []) {
+    if (o.originCountry && !isEuropean(o.originCountry)) o.originCountry = null;
+    if (o.destCountry && !isEuropean(o.destCountry)) o.destCountry = null;
+  }
+  return n;
+}
+
+// Länder der gespeicherten Angebote aus der Ortsliste aktualisieren
+function syncCountries() {
+  for (const o of state.offers.items || []) {
+    const oc = state.locations.items[o.originRef]?.country, dc = state.locations.items[o.destRef]?.country;
+    if (oc) o.originCountry = oc;
+    if (dc) o.destCountry = dc;
+  }
+}
+
+function inCountry(loc, cc) { return cc === "INT" ? loc?.country !== "DE" : loc?.country === cc; }
+
+async function run() {
+  if (running) return;
+  running = true; abort = false;
+  $("btnRun").disabled = true; $("btnStop").disabled = false;
+  const cc = $("sCountry").value;
+  const withReturns = $("sReturns").checked;
+  const collected = new Map();
+  const add = (list) => { for (const o of list) collected.set(o.key + "|" + o.originRef + "|" + o.destRef, o); };
+
+  try {
+    // 1) Orte ermitteln (zwischengespeichert)
+    const fresh = Date.now() - state.locations.ts < LOC_CACHE_DAYS * 864e5 && state.locations.cc === cc;
+    if (!fresh) {
+      await discoverLocations(terms($("sDe").value), "DE", "Deutschland");
+      if (cc !== "INT") await discoverLocations(terms($("sDest").value), cc, cc);
+      if (abort) throw new Error("abgebrochen");
+      state.locations.ts = Date.now(); state.locations.cc = cc;
+    }
+    await resolveCountries(Object.values(state.locations.items), "Startorte");
+    await saveCache();
+    const all = Object.values(state.locations.items);
+    const deOrigins = all.filter((l) => l.country === "DE");
+    log(`${deOrigins.length} Startorte in Deutschland bekannt.`);
+    if (!deOrigins.length) log("Keine deutschen Orte gefunden – Rohantwort der Ortssuche im Protokoll prüfen.", true);
+
+    // 2) Hinfahrten: Startort -> Ziele im Zielland -> Angebote
+    const pairs = [];
+    const reach = [];
+    let i = 0;
+    for (const o of deOrigins) {
+      if (abort) throw new Error("abgebrochen");
+      setProgress(++i, deOrigins.length, `Ziele ab ${o.name} prüfen (${i}/${deOrigins.length})`);
+      const { dests, directOffers } = await destinationsFrom(o.ref);
+      add(directOffers);
+      reach.push([o, dests]);
+    }
+    await resolveCountries(reach.flatMap(([, ds]) => ds), "Ziele");
+    await saveCache();
+    for (const [o, dests] of reach) for (const d of dests) if (inCountry(state.locations.items[d.ref], cc)) pairs.push([o.ref, d.ref]);
+
+    // 3) Rückfahrten: Orte im Zielland -> Deutschland
+    if (withReturns) {
+      const destOrigins = new Map();
+      if (cc !== "INT") for (const l of Object.values(state.locations.items)) if (l.country === cc) destOrigins.set(l.ref, l);
+      for (const [, d] of pairs) destOrigins.set(d, state.locations.items[d]);
+      i = 0;
+      const back = [];
+      for (const o of destOrigins.values()) {
+        if (abort) throw new Error("abgebrochen");
+        setProgress(++i, destOrigins.size, `Rückfahrten ab ${o.name} prüfen (${i}/${destOrigins.size})`);
+        const { dests, directOffers } = await destinationsFrom(o.ref);
+        add(directOffers);
+        back.push([o, dests]);
+      }
+      await resolveCountries(back.flatMap(([, ds]) => ds), "Rückfahrt-Ziele");
+      await saveCache();
+      for (const [o, dests] of back) for (const d of dests) if (state.locations.items[d.ref]?.country === "DE") pairs.push([o.ref, d.ref]);
+    }
+
+    // 4) Angebote je Strecke
+    const uniq = [...new Map(pairs.map((p) => [p.join(">"), p])).values()];
+    i = 0;
+    for (const [o, d] of uniq) {
+      if (abort) throw new Error("abgebrochen");
+      const on = state.locations.items[o]?.name, dn = state.locations.items[d]?.name;
+      setProgress(++i, uniq.length, `Angebote ${on} → ${dn} (${i}/${uniq.length})`);
+      const json = await api("/v1/offers", { locale: "de", origin: o, destination: d }, "offers");
+      if (json) add(parseOffers(json, o, d));
+    }
+
+    // 5) Speichern, neue markieren
+    const now = new Date().toISOString();
+    const items = [...collected.values()];
+    const newKeys = [];
+    for (const o of items) if (!state.firstSeen[o.key]) { state.firstSeen[o.key] = now; newKeys.push(o.key); }
+    const hadData = state.offers.items.length > 0;
+    state.offers = { ts: Date.now(), cc, items };
+    state.lastRunKeys = hadData ? newKeys : [];
+    const usedRefs = new Set(items.flatMap((o) => [o.originRef, o.destRef]));
+    await resolveCountries(Object.values(state.locations.items).filter((l) => usedRefs.has(l.ref)), "Koordinaten für die Karte", true);
+    syncCountries();
+    await saveCache();
+    setProgress(1, 1, `Fertig: ${items.length} Angebote auf ${uniq.length} Strecken, ${newKeys.length} neu · ${new Date().toLocaleString("de-DE")}`);
+    log(`Suchlauf fertig: ${items.length} Angebote, ${newKeys.length} neu.`);
+    notifyNew(items.filter((o) => hadData && newKeys.includes(o.key)));
+  } catch (e) {
+    setProgress(0, 0, e.message === "abgebrochen" ? "Abgebrochen. Bisherige Ergebnisse bleiben erhalten." : "Fehler: " + e.message);
+    if (e.message !== "abgebrochen") log(e.stack || e.message, true);
+  } finally {
+    running = false;
+    $("btnRun").disabled = false; $("btnStop").disabled = true;
+    render();
+  }
+}
+
+function notifyNew(list) {
+  const outbound = list.filter(isOneEuro).filter((o) => o.originCountry === "DE");
+  if (!outbound.length || !("Notification" in window) || Notification.permission !== "granted") return;
+  const first = outbound[0];
+  new Notification(`${outbound.length} neue 1-€-Fahrt(en)`, { body: `z. B. ${first.originName} → ${first.destName}, ab ${fmtD(parseDate(first.start))}` });
+}
+
+// ---------------------------------------------------------------------------
+// Rückfahrt-Abgleich & Anzeige
+// ---------------------------------------------------------------------------
+const CAMPER_RE = /camper|wohnmobil|motorhome|motor home|reisemobil|womo|campervan|california|alkoven|teilintegriert|vollintegriert|kastenwagen/i;
+const vehicleText = (o) => [o.category, o.vehicle, JSON.stringify(o.raw?.attributes || {})].join(" ");
+const isCamper = (o) => CAMPER_RE.test(vehicleText(o));
+const catOf = (o) => o.category || o.vehicle || "unbekannt";
+
+function refreshSelect(id, values, fixed, label = (v) => v) {
+  const el = $(id), cur = el.value || (store.get("mc_settings", {})[id] ?? "");
+  el.innerHTML = fixed + values.map((v) => `<option value="cat:${esc(v)}">${esc(label(v))}</option>`).join("");
+  el.value = [...el.options].some((o) => o.value === cur) ? cur : "";
+}
+
+const isOneEuro = (o) => o.price?.amount === 1 && (o.price.currency || "EUR") === "EUR";
+
+function sameArea(destOfOut, ret, radius) {
+  if (ret.originRef === destOfOut.destRef) return true;
+  if (norm(ret.originName) && norm(ret.originName) === norm(destOfOut.destName)) return true;
+  const d = haversine(destOfOut.destGeo, ret.originGeo);
+  return d != null && d <= radius;
+}
+
+function findReturns(out, returns, oneEuroOnly) {
+  const minH = Number($("rMinH").value) || 0, maxD = Number($("rMaxD").value) || 0, radius = Number($("rRadius").value) || 0;
+  const outStart = parseDate(out.start), outEnd = parseDate(out.end) || outStart;
+  if (!outStart) return [];
+  return returns.filter((r) => {
+    if (oneEuroOnly && !isOneEuro(r)) return false;
+    if (!sameArea(out, r, radius)) return false;
+    const rs = parseDate(r.start), re = parseDate(r.end) || rs;
+    if (!rs) return false;
+    // Rückfahrt muss nach frühestmöglicher Ankunft + Mindestaufenthalt noch abholbar sein
+    if (re < new Date(outStart.getTime() + minH * 36e5)) return false;
+    // und darf nicht später als maxD Tage nach spätester Abgabe der Hinfahrt beginnen
+    if (rs > new Date(outEnd.getTime() + maxD * 864e5)) return false;
+    return true;
+  }).sort((a, b) => parseDate(a.start) - parseDate(b.start));
+}
+
+function filtered() {
+  const items = state.offers.items || [];
+  const oneEuro = $("fOneEuro").checked;
+  const outbound = items.filter((o) => o.originCountry === "DE" && o.destCountry !== "DE");
+  const returns = items.filter((o) => o.destCountry === "DE" && o.originCountry !== "DE");
+  const fFrom = norm($("fFrom").value), fTo = norm($("fTo").value);
+  const dFrom = $("fDateFrom").value ? new Date($("fDateFrom").value + "T00:00") : null;
+  const dTo = $("fDateTo").value ? new Date($("fDateTo").value + "T23:59") : null;
+  let pre = outbound.filter((o) => {
+    if (oneEuro && !isOneEuro(o)) return false;
+    const fv = $("fVehicle").value;
+    if (fv === "camper" && !isCamper(o)) return false;
+    if (fv.startsWith("cat:") && catOf(o) !== fv.slice(4)) return false;
+    if (fFrom && !norm(o.originName + " " + (o.originStation || "")).includes(fFrom)) return false;
+    if (fTo && !norm(o.destName + " " + (o.destStation || "")).includes(fTo)) return false;
+    const s = parseDate(o.start);
+    if (dFrom && s && s < dFrom) return false;
+    if (dTo && s && s > dTo) return false;
+    return true;
+  }).map((o) => ({ ...o, returns: findReturns(o, returns, oneEuro) }));
+  if ($("fReturn").checked) pre = pre.filter((o) => o.returns.length);
+  const countryCounts = {};
+  for (const o of pre) { const c = o.destCountry || "?"; countryCounts[c] = (countryCounts[c] || 0) + 1; }
+  let list = selCountries.size ? pre.filter((o) => selCountries.has(o.destCountry || "?")) : pre;
+  const sort = $("fSort").value;
+  list.sort((a, b) => {
+    if (sort === "freekm") return (b.freeKm ?? -1) - (a.freeKm ?? -1);
+    if (sort === "from") return a.originName.localeCompare(b.originName, "de");
+    if (sort === "new") return (state.firstSeen[b.key] || "").localeCompare(state.firstSeen[a.key] || "");
+    return (parseDate(a.start) || 0) - (parseDate(b.start) || 0);
+  });
+  return { list, outbound, returns, countryCounts };
+}
+
+const priceText = (p) => p?.amount == null ? "Preis ?" : p.amount.toLocaleString("de-DE", { style: "currency", currency: p.currency || "EUR" });
+
+// Zielländer-Auswahl (leer = alle)
+const ALL_DEST = ["ES", "FR", "IT", "PT", "AT", "CH", "NL", "BE", "LU", "DK", "PL", "CZ", "HR", "SI", "HU", "GB", "IE", "SE", "NO"];
+let selCountries = new Set(store.get("mc_fcountries", []));
+function saveCountries() { store.set("mc_fcountries", [...selCountries]); }
+
+function renderCountries(all, counts) {
+  const seen = new Set(ALL_DEST);
+  for (const o of all) if (o.originCountry === "DE" && o.destCountry !== "DE") seen.add(o.destCountry || "?");
+  const list = [...seen].sort((a, b) => (counts[b] || 0) - (counts[a] || 0) || countryName(a).localeCompare(countryName(b), "de"));
+  $("fCountries").innerHTML = list.map((c) => `<label class="${counts[c] ? "" : "zero"}">
+      <input type="checkbox" data-cc="${esc(c)}" ${selCountries.has(c) ? "checked" : ""}> ${esc(countryName(c))}
+      <span class="n">${counts[c] || 0}</span></label>`).join("");
+}
+
+function render() {
+  renderCards();
+  if (view === "table") renderTable(filtered().list);
+}
+
+function renderCards() {
+  const all = state.offers.items || [];
+  refreshSelect("fVehicle", [...new Set(all.map(catOf))].sort(), '<option value="">alle Fahrzeuge</option><option value="camper">nur Camper</option>');
+  const { list, outbound, returns, countryCounts } = filtered();
+  renderCountries(all, countryCounts);
+  if (view === "map") renderMap(list);
+  const items = state.offers.items || [];
+  const noPrice = items.filter((o) => o.price?.amount == null).length;
+  const locs = Object.values(state.locations.items);
+  $("stats").innerHTML = [
+    [list.length, "angezeigt"],
+    [outbound.filter(isOneEuro).length, "1-€-Hinfahrten"],
+    [returns.filter(isOneEuro).length, "1-€-Rückfahrten"],
+    [outbound.filter(isCamper).length, "Camper-Hinfahrten"],
+    [locs.filter((l) => l.country === "DE").length, "Startorte DE"],
+    ...(noPrice ? [[noPrice, "ohne erkennbaren Preis"]] : []),
+    [state.offers.ts ? new Date(state.offers.ts).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }) : "–", "Stand"],
+  ].map(([n, l]) => `<div class="stat"><b>${esc(n)}</b>${esc(l)}</div>`).join("");
+
+  if (!items.length) {
+    $("list").innerHTML = `<div class="empty">Noch keine Daten. „Jetzt aktualisieren“ startet die Suche – der erste Lauf dauert einige Minuten, weil zunächst alle Orte ermittelt werden.</div>`;
+    return;
+  }
+  if (!list.length) {
+    $("list").innerHTML = `<div class="empty">Keine Angebote für diese Filter.${items.length && !outbound.length
+      ? `<br><br>${items.length} Angebote geladen, aber keines als Fahrt ab Deutschland erkannt. Bitte unter „Protokoll &amp; Rohdaten“ auf „Diagnose in Zwischenablage kopieren“ klicken und an Claude schicken.` : ""}</div>`;
+    return;
+  }
+
+  const newSet = new Set(state.lastRunKeys);
+  $("list").innerHTML = list.map((o) => {
+    const s = parseDate(o.start), e = parseDate(o.end), v = parseDate(o.validUntil);
+    const rets = o.returns.slice(0, 8).map((r) => `<div class="ret">↩ <b>${esc(r.originName)} → ${esc(r.destName)}</b> <span class="badge land">${esc(countryName(r.originCountry))} → ${esc(countryName(r.destCountry))}</span> · Abholung ab ${fmtDT(parseDate(r.start))} · Abgabe bis ${fmtDT(parseDate(r.end))}${r.freeKm != null ? " · " + esc(r.freeKm) + " Frei-km" : ""} · ${esc(priceText(r.price))}${r.vehicle ? " · " + esc(r.vehicle) : ""}</div>`).join("");
+    return `<article class="deal ${newSet.has(o.key) ? "new" : ""}">
+      <div class="route">${esc(o.originName)} <span class="arrow">→</span> ${esc(o.destName)}
+        ${newSet.has(o.key) ? '<span class="badge">neu</span>' : ""}
+        ${isCamper(o) ? '<span class="badge" style="background:#e0e7ff;color:#3730a3">Camper</span>' : ""}
+        <span class="badge land">${esc(countryName(o.destCountry))}</span>
+        ${o.returns.length ? `<span class="badge ok">${o.returns.length} Rückfahrt${o.returns.length > 1 ? "en" : ""} möglich</span>` : ""}
+        <span class="price">${esc(priceText(o.price))}</span></div>
+      ${(o.originStation || o.destStation) ? `<div class="station">${esc(o.originStation || "")}${o.destStation ? " → " + esc(o.destStation) : ""}</div>` : ""}
+      <div class="facts">
+        <div><span>Abholung ab</span> ${fmtDT(s)}</div>
+        <div><span>Abgabe bis</span> ${fmtDT(e)}</div>
+        ${o.freeKm != null ? `<div><span>Freikilometer</span> ${esc(o.freeKm)}</div>` : ""}
+        ${o.distanceKm != null ? `<div><span>Strecke</span> ca. ${esc(o.distanceKm)} km</div>` : ""}
+        ${o.vehicle ? `<div><span>Fahrzeug</span> ${esc(o.vehicle)}</div>` : ""}
+        ${o.category && o.category !== o.vehicle ? `<div><span>Kategorie</span> ${esc(o.category)}</div>` : ""}
+        ${o.minAge != null ? `<div><span>Mindestalter</span> ${esc(o.minAge)}</div>` : ""}
+        ${o.minLicence != null ? `<div><span>Führerschein seit</span> ${esc(o.minLicence)} J.</div>` : ""}
+        ${v ? `<div><span>Angebot gültig bis</span> ${fmtDT(v)}</div>` : ""}
+      </div>
+      ${rets ? `<div class="returns"><h3>Mögliche Rückfahrten</h3>${rets}${o.returns.length > 8 ? `<div class="ret">… und ${o.returns.length - 8} weitere</div>` : ""}</div>` : ""}
+      <details><summary>Rohdaten &amp; Buchung</summary>
+        <p>Buchen: auf <a href="https://movacar.com/" target="_blank" rel="noopener">movacar.com</a> nach ${esc(o.originName)} → ${esc(o.destName)} suchen${o.refkey ? ` (Referenz ${esc(o.refkey)})` : ""}.</p>
+        <pre>${esc(JSON.stringify(o.raw, null, 2))}</pre></details>
+    </article>`;
+  }).join("");
+}
+
+function diagnosis() {
+  const items = state.offers.items || [];
+  const count = (f) => items.reduce((m, o) => { const k = f(o); m[k] = (m[k] || 0) + 1; return m; }, {});
+  const slim = (o) => { const { raw, ...rest } = o; return rest; };
+  const locs = Object.values(state.locations.items);
+  return JSON.stringify({
+    angebote_gesamt: items.length,
+    laenderpaare: count((o) => `${o.originCountry}->${o.destCountry}`),
+    preise: count((o) => `${o.price?.raw} => ${o.price?.amount} ${o.price?.currency}`),
+    orte_gesamt: locs.length,
+    orte_nach_land: locs.reduce((m, l) => { m[l.country] = (m[l.country] || 0) + 1; return m; }, {}),
+    beispiel_orte: locs.slice(0, 5),
+    beispiel_angebote_normalisiert: items.slice(0, 3).map(slim),
+    beispiel_angebot_roh: items[0]?.raw,
+    rohantworten: Object.fromEntries(Object.entries(samples).map(([k, s]) => [k, { url: s.url, text: s.text.slice(0, 6000) }])),
+  }, null, 1);
+}
+
+async function copyDiagnosis() {
+  const text = diagnosis();
+  try { await navigator.clipboard.writeText(text); log("Diagnose kopiert (" + text.length + " Zeichen) – bitte in den Chat einfügen."); }
+  catch {
+    const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove(); log("Diagnose kopiert – bitte in den Chat einfügen.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Karte (Leaflet 1.9.4 + OpenStreetMap-Kacheln, wird erst bei Bedarf geladen)
+// ---------------------------------------------------------------------------
+let view = store.get("mc_view", "table");
+let tSort = store.get("mc_tsort", { key: "start", dir: 1 });
+const openRows = new Set();
+
+const COLS = [
+  ["from", "Start", (o) => o.originName],
+  ["to", "Ziel", (o) => o.destName],
+  ["land", "Land", (o) => countryName(o.destCountry)],
+  ["start", "Abholung ab", (o) => parseDate(o.start)?.getTime() ?? 0],
+  ["end", "Abgabe bis", (o) => parseDate(o.end)?.getTime() ?? 0],
+  ["price", "Preis", (o) => o.price?.amount ?? 1e9],
+  ["vehicle", "Fahrzeug", (o) => (isCamper(o) ? "0" : "1") + (o.vehicle || "")],
+  ["freekm", "Frei-km", (o) => o.freeKm ?? -1],
+  ["dist", "Strecke", (o) => o.distanceKm ?? -1],
+  ["age", "Alter", (o) => o.minAge ?? 0],
+  ["ret", "Rückfahrten", (o) => o.returns.length],
+];
+
+function renderTable(list) {
+  const col = COLS.find((c) => c[0] === tSort.key) || COLS[3];
+  const rows = [...list].sort((a, b) => { const x = col[2](a), y = col[2](b); return (x < y ? -1 : x > y ? 1 : 0) * tSort.dir; });
+  const newSet = new Set(state.lastRunKeys);
+  const head = COLS.map(([k, label]) => `<th data-k="${k}" class="${k === tSort.key ? "sorted" : ""}">${label}${k === tSort.key ? (tSort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("");
+  const body = rows.map((o) => {
+    const id = esc(o.key + "|" + o.originRef + "|" + o.destRef);
+    const main = `<tr class="drow ${newSet.has(o.key) ? "new" : ""}" data-id="${id}">
+      <td><b>${esc(o.originName)}</b>${o.originStation ? `<div class="station">${esc(o.originStation)}</div>` : ""}</td>
+      <td><b>${esc(o.destName)}</b>${o.destStation ? `<div class="station">${esc(o.destStation)}</div>` : ""}</td>
+      <td><span class="badge land">${esc(countryName(o.destCountry))}</span></td>
+      <td class="dt">${fmtDT(parseDate(o.start))}</td>
+      <td class="dt">${fmtDT(parseDate(o.end))}</td>
+      <td class="num" style="color:var(--accent);font-weight:600">${esc(priceText(o.price))}</td>
+      <td>${esc(o.vehicle || o.category || "–")} ${isCamper(o) ? '<span class="badge" style="background:#e0e7ff;color:#3730a3">Camper</span>' : ""}${newSet.has(o.key) ? ' <span class="badge">neu</span>' : ""}</td>
+      <td class="num">${o.freeKm ?? "–"}</td>
+      <td class="num">${o.distanceKm != null ? "ca. " + o.distanceKm + " km" : "–"}</td>
+      <td class="num">${o.minAge ?? "–"}</td>
+      <td class="num">${o.returns.length ? `<span class="badge ok">${o.returns.length}</span>` : "–"}</td></tr>`;
+    if (!openRows.has(o.key + "|" + o.originRef + "|" + o.destRef)) return main;
+    const rets = o.returns.map((r) => `<div class="ret">↩ <b>${esc(r.originName)} → ${esc(r.destName)}</b> · ${dealLine(r)}</div>`).join("") || "<div>Keine passende Rückfahrt gefunden.</div>";
+    return main + `<tr class="detail"><td colspan="${COLS.length}">
+      ${o.category ? `Kategorie: ${esc(o.category)} · ` : ""}${o.minLicence != null ? `Führerschein seit ${esc(o.minLicence)} J. · ` : ""}${o.validUntil ? `Angebot gültig bis ${fmtDT(parseDate(o.validUntil))} · ` : ""}
+      Buchen auf <a href="https://movacar.com/" target="_blank" rel="noopener">movacar.com</a>${o.refkey ? ` (Referenz ${esc(o.refkey)})` : ""}
+      <div class="returns"><h3>Mögliche Rückfahrten</h3>${rets}</div></td></tr>`;
+  }).join("");
+  $("tableWrap").innerHTML = rows.length ? `<table class="deals"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : $("list").innerHTML;
+}
+let map = null, mapLayer = null, leafletLoading = null;
+
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (leafletLoading) return leafletLoading;
+  leafletLoading = new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(css);
+    const js = document.createElement("script");
+    js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    js.onload = resolve; js.onerror = () => reject(new Error("Leaflet konnte nicht geladen werden (Internet?)"));
+    document.head.appendChild(js);
+  });
+  return leafletLoading;
+}
+
+function geoOf(ref, fallback) {
+  const l = state.locations.items[ref];
+  if (l?.lat != null && l?.lon != null) return [l.lat, l.lon];
+  if (fallback?.lat != null && fallback?.lon != null) return [fallback.lat, fallback.lon];
+  return null;
+}
+
+function dealLine(o) {
+  return `${fmtD(parseDate(o.start))} – ${fmtD(parseDate(o.end))} · ${esc(priceText(o.price))}${o.vehicle ? " · " + esc(o.vehicle) : ""}${isCamper(o) ? " · <b>Camper</b>" : ""}${o.freeKm != null ? " · " + esc(o.freeKm) + " Frei-km" : ""}`;
+}
+
+async function renderMap(list) {
+  try { await loadLeaflet(); } catch (e) { $("mapNote").textContent = e.message; return; }
+  if (!map) {
+    map = L.map("map", { worldCopyJump: true, maxZoom: 12 }).setView([48, 8], 4);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 12,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>-Mitwirkende',
+    }).addTo(map);
+    mapLayer = L.layerGroup().addTo(map);
+  }
+  map.invalidateSize();
+  mapLayer.clearLayers();
+  const showReturns = $("mReturns").checked;
+  const routes = new Map(), points = new Map();
+  let missing = 0;
+  const addRoute = (o, kind) => {
+    const a = geoOf(o.originRef, o.originGeo), b = geoOf(o.destRef, o.destGeo);
+    if (!a || !b) { missing++; return; }
+    const k = kind + "|" + o.originRef + ">" + o.destRef;
+    if (!routes.has(k)) routes.set(k, { kind, a, b, from: o.originName, to: o.destName, deals: [] });
+    routes.get(k).deals.push(o);
+    for (const [ref, pos, name, role] of [[o.originRef, a, o.originName, kind === "out" ? "start" : "ziel"], [o.destRef, b, o.destName, kind === "out" ? "ziel" : "start"]]) {
+      if (!points.has(ref)) points.set(ref, { pos, name, start: 0, ziel: 0, country: state.locations.items[ref]?.country });
+      points.get(ref)[role]++;
+    }
+  };
+  for (const o of list) {
+    addRoute(o, "out");
+    if (showReturns) for (const r of o.returns || []) addRoute(r, "ret");
+  }
+  const seenRet = new Set();
+  for (const r of routes.values()) {
+    if (r.kind === "ret") { r.deals = r.deals.filter((d) => !seenRet.has(d.key) && seenRet.add(d.key)); if (!r.deals.length) continue; }
+    const camper = r.deals.some(isCamper);
+    const line = L.polyline([r.a, r.b], {
+      color: r.kind === "ret" ? "#15803d" : camper ? "#4338ca" : "#c2410c",
+      weight: Math.min(2 + r.deals.length, 8), opacity: .75, dashArray: r.kind === "ret" ? "6 6" : null,
+    }).addTo(mapLayer);
+    const head = `<b>${esc(r.from)} → ${esc(r.to)}</b> ${r.kind === "ret" ? "(Rückfahrt)" : ""}<br>${r.deals.length} Angebot${r.deals.length > 1 ? "e" : ""}`;
+    line.bindTooltip(`${esc(r.from)} → ${esc(r.to)} (${r.deals.length})`, { sticky: true });
+    line.bindPopup(head + "<br>" + r.deals.slice(0, 12).map(dealLine).join("<br>") + (r.deals.length > 12 ? `<br>… und ${r.deals.length - 12} weitere` : ""), { maxWidth: 380 });
+  }
+  for (const p of points.values()) {
+    const isDE = p.country === "DE";
+    L.circleMarker(p.pos, { radius: isDE ? 5 : 7, color: "#fff", weight: 1.5, fillColor: isDE ? "#1d1b16" : "#c2410c", fillOpacity: .9 })
+      .bindTooltip(`${esc(p.name)} (${esc(countryName(p.country))})${p.start ? " · " + p.start + " ab hier" : ""}${p.ziel ? " · " + p.ziel + " hierhin" : ""}`)
+      .addTo(mapLayer);
+  }
+  const all = [...points.values()].map((p) => p.pos);
+  if (all.length) map.fitBounds(all, { padding: [30, 30], maxZoom: 7 });
+  $("mapNote").innerHTML = `Orange = Hinfahrt, blau = Camper, grün gestrichelt = mögliche Rückfahrt. Linie anklicken für Details. Ortsdaten: <a href="https://open-meteo.com/" target="_blank">Open-Meteo.com</a>.` +
+    (missing ? ` <b>${missing} Angebote ohne Koordinaten</b> – unter Einstellungen „Länder &amp; Koordinaten nachschlagen“.` : "");
+}
+
+function setView(v) {
+  view = v; store.set("mc_view", v);
+  $("vList").classList.toggle("on", v === "list"); $("vMap").classList.toggle("on", v === "map"); $("vTable").classList.toggle("on", v === "table");
+  $("list").style.display = v === "list" ? "" : "none";
+  $("tableWrap").style.display = v === "table" ? "" : "none";
+  $("mReturnsL").style.visibility = v === "map" ? "visible" : "hidden";
+  $("mapWrap").style.display = v === "map" ? "" : "none";
+  render();
+}
+
+function renderSamples() {
+  $("samples").innerHTML = Object.entries(samples).map(([k, s]) =>
+    `<details><summary>${esc(k)}: ${esc(s.url)}</summary><pre>${esc(s.text)}</pre></details>`).join("");
+}
+
+function exportCsv() {
+  const { list } = filtered();
+  const cols = ["Start", "Ziel", "Abholung ab", "Abgabe bis", "Preis", "Freikilometer", "Strecke km", "Fahrzeug", "Mindestalter", "Rückfahrten", "Erste Rückfahrt", "Angebots-ID", "Referenz"];
+  const rows = list.map((o) => [o.originName, o.destName, o.start, o.end, o.price?.amount, o.freeKm, o.distanceKm, o.vehicle, o.minAge,
+    o.returns.length, o.returns[0] ? `${o.returns[0].originName} → ${o.returns[0].destName} ab ${o.returns[0].start}` : "", o.offerId, o.refkey]);
+  const csv = "﻿" + [cols, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `movacar_1euro_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+
+// ---------------------------------------------------------------------------
+// Einstellungen & Start
+// ---------------------------------------------------------------------------
+const settingsIds = ["fVehicle", "fOneEuro", "fReturn", "fFrom", "fTo", "fDateFrom", "fDateTo", "fSort", "rMinH", "rMaxD", "rRadius", "sCountry", "sReturns", "sAuto", "sDe", "sDest"];
+function saveSettings() {
+  const s = {};
+  for (const id of settingsIds) { const el = $(id); s[id] = el.type === "checkbox" ? el.checked : el.value; }
+  store.set("mc_settings", s);
+}
+function loadSettings() {
+  const s = store.get("mc_settings", {});
+  if (s.sCountry === "*") s.sCountry = "INT";
+  $("sDe").value = DEFAULT_DE; $("sDest").value = DEFAULT_DEST.INT;
+  for (const id of settingsIds) if (s[id] !== undefined) { const el = $(id); if (el.type === "checkbox") el.checked = s[id]; else el.value = s[id]; }
+}
+
+let autoTimer = null;
+function setupAuto() {
+  clearInterval(autoTimer);
+  const min = Number($("sAuto").value);
+  if (min > 0) {
+    if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+    autoTimer = setInterval(() => { if (!running) run(); }, min * 60e3);
+  }
+}
+
+loadSettings();
+for (const id of settingsIds) $(id).addEventListener("input", () => { saveSettings(); render(); });
+$("sCountry").addEventListener("change", () => { $("sDest").value = DEFAULT_DEST[$("sCountry").value]; saveSettings(); });
+$("sAuto").addEventListener("change", setupAuto);
+$("btnRun").addEventListener("click", run);
+$("btnStop").addEventListener("click", () => { abort = true; });
+$("btnCsv").addEventListener("click", exportCsv);
+$("btnSnap").addEventListener("click", exportSnapshot);
+$("btnDiag").addEventListener("click", copyDiagnosis);
+$("vList").addEventListener("click", () => setView("list"));
+$("vTable").addEventListener("click", () => setView("table"));
+$("tableWrap").addEventListener("click", (e) => {
+  const th = e.target.closest("th");
+  if (th) { const k = th.dataset.k; tSort = { key: k, dir: tSort.key === k ? -tSort.dir : 1 }; store.set("mc_tsort", tSort); render(); return; }
+  if (e.target.closest("a")) return;
+  const tr = e.target.closest("tr.drow");
+  if (tr) { const id = tr.dataset.id; openRows.has(id) ? openRows.delete(id) : openRows.add(id); render(); }
+});
+$("vMap").addEventListener("click", () => setView("map"));
+$("mReturns").addEventListener("change", render);
+$("btnGeo").addEventListener("click", async () => {
+  if (running) return;
+  running = true; abort = false; $("btnRun").disabled = true; $("btnStop").disabled = false;
+  const refs = new Set((state.offers.items || []).flatMap((o) => [o.originRef, o.destRef]));
+  await resolveCountries(Object.values(state.locations.items).filter((l) => refs.has(l.ref)), "gespeicherte Angebote", true);
+  syncCountries(); await saveCache();
+  setProgress(1, 1, "Länder aktualisiert."); running = false; $("btnRun").disabled = false; $("btnStop").disabled = true; render();
+});
+$("fCountries").addEventListener("change", (e) => {
+  const cc = e.target.dataset.cc; if (!cc) return;
+  e.target.checked ? selCountries.add(cc) : selCountries.delete(cc);
+  saveCountries(); render();
+});
+$("cAll").addEventListener("click", (e) => { e.preventDefault(); selCountries.clear(); saveCountries(); render(); });
+$("btnResetLoc").addEventListener("click", () => { state.locations.ts = 0; saveCache(); log("Ortsliste gelöscht; nächster Lauf ermittelt sie neu."); render(); });
+$("btnResetAll").addEventListener("click", () => {
+  if (!confirm("Alle gespeicherten Orte, Angebote und Einstellungen löschen?")) return;
+  ["mc_locations", "mc_offers", "mc_seen", "mc_lastnew", "mc_settings", "mc_samples", "mc_fcountries"].forEach(store.del);
+  state = { locations: { ts: 0, items: {} }, offers: { ts: 0, items: [] }, firstSeen: {}, lastRunKeys: [] }; samples = {};
+  saveCache().then(() => location.reload());
+});
+setupAuto();
+(async () => {
+await loadSnapshot();
+if (sanitizeCountries()) await saveCache();
+syncCountries();
+renderSamples();
+setView(view);
+if (state.offers.ts) $("status").textContent = `Letzter Lauf: ${new Date(state.offers.ts).toLocaleString("de-DE")} · ${state.offers.items.length} Angebote`;
+render();
+})();
+</script>
+</body>
+</html>
