@@ -282,7 +282,7 @@ async function saveCache() {
 //  1) REMOTE_DATA_URL – automatisch alle 3 h von GitHub Actions aktualisiert
 //  2) movacar_daten.json neben index.html (manueller Export, optional)
 // >>> Nach dem Anlegen des GitHub-Repos hier die Rohdaten-Adresse eintragen: <<<
-const REMOTE_DATA_URL = "";
+const REMOTE_DATA_URL = "https://raw.githubusercontent.com/sg-ice/movacar-scraper/main/movacar_daten.json";
 const SNAPSHOT_FILE = "movacar_daten.json";
 
 // Datenstand als Objekt (wird auch vom GitHub-Bot benutzt)
@@ -616,7 +616,10 @@ function nameCandidates(name) {
   const n = String(name || "");
   const inner = [...n.matchAll(/\((.*?)\)/g)].map((m) => m[1]);
   const outer = n.replace(/\s*\(.*?\)/g, "");
-  return [...new Set([outer.trim(), ...outer.split(/\s*[\/,|]\s*|\s+-\s+/), ...inner].map((x) => x.trim()).filter((x) => x.length > 1))];
+  // Zusätze wie "Flughafen", "Süd", "Hbf" entfernen: "Paris CDG Flughafen" -> "Paris", "Wien Süd" -> "Wien"
+  const stripped = outer.replace(/\b(Flughafen|Airport|A[ée]roport|Aeropuerto|Aeroporto|CDG|ORY|Hbf|Hauptbahnhof|Bahnhof|Station|Gare|Zentrum|Centre|Center|City|Nord|Süd|Sued|Ost|West|North|South|East)\b/gi, " ").replace(/\s+/g, " ").trim();
+  const first = outer.trim().split(/\s+/)[0];
+  return [...new Set([outer.trim(), ...outer.split(/\s*[\/,|]\s*|\s+-\s+/), ...inner, stripped, first].map((x) => x.trim()).filter((x) => x.length > 1))];
 }
 
 // Ohne Server: Open-Meteo-Geocoding direkt aus dem Browser, Ergebnisse im Browser gespeichert
@@ -802,7 +805,7 @@ function notifyNew(list) {
 // ---------------------------------------------------------------------------
 // Rückfahrt-Abgleich & Anzeige
 // ---------------------------------------------------------------------------
-const CAMPER_RE = /camper|wohnmobil|motorhome|motor home|reisemobil|womo|campervan|california|alkoven|teilintegriert|vollintegriert|kastenwagen/i;
+const CAMPER_RE = /camper|wohnmobil|motorhome|motor home|reisemobil|womo|campervan|california|alkoven|teilintegriert|vollintegriert|kastenwagen|westfalia|weinsberg|knaus|marco polo|nugget|hymer|dethleffs|carado|p(?:ö|oe)ssl|sunlight|b(?:ü|ue)rstner|eriba|tabbert|adria|malibu|roadsurfer|pilote|rapido|chausson|benimar|globecar|clever|vantourer/i;
 const vehicleText = (o) => [o.category, o.vehicle, JSON.stringify(o.raw?.attributes || {})].join(" ");
 const isCamper = (o) => CAMPER_RE.test(vehicleText(o));
 const catOf = (o) => o.category || o.vehicle || "unbekannt";
