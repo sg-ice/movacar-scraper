@@ -297,6 +297,8 @@ function buildSnapshot() {
     locations: state.locations,
     offers: { ...state.offers, items: (state.offers.items || []).map(({ raw, ...o }) => o) },
     firstSeen: state.firstSeen, lastRunKeys: state.lastRunKeys, geo,
+    // ein vollständiges Rohangebot je Preis, um die Felder der API prüfen zu können
+    rawSamples: Object.values(Object.fromEntries((state.offers.items || []).filter((o) => o.raw).map((o) => [o.price?.raw, o.raw]))).slice(0, 3),
   };
 }
 
@@ -514,6 +516,28 @@ function parsePrice(attrs, priceRel, includedIdx) {
   return { amount: null, currency: null, raw: null };
 }
 
+// Tankregelung: alle Attribute/Verknüpfungen, deren Name nach Kraftstoff/Tank klingt
+const FUEL_KEY = /fuel|tank|refuel|kraftstoff|benzin|petrol|gas/i;
+function extractFuel(item, idx) {
+  const out = {};
+  const a = item.attributes || {};
+  for (const [k, v] of Object.entries(a)) if (FUEL_KEY.test(k) && v != null) out[k] = v;
+  for (const [k, rel] of Object.entries(item.relationships || {})) {
+    if (!FUEL_KEY.test(k)) continue;
+    const d = rel?.data;
+    if (!d) continue;
+    const inc = idx[d.type + ":" + d.id];
+    out[k] = inc?.attributes ? { id: d.id, ...inc.attributes } : d.id;
+  }
+  return Object.keys(out).length ? out : null;
+}
+// Kurztext für die Anzeige
+function fuelText(f) {
+  if (!f) return null;
+  const vals = Object.values(f).map((v) => typeof v === "object" ? (v.name || v.title || v.label || v.description || v.id || JSON.stringify(v)) : v);
+  return vals.map(String).join(" · ").slice(0, 80);
+}
+
 function parseOffers(json, queryOrigin, queryDest) {
   const included = Array.isArray(json?.included) ? json.included : [];
   const idx = {};
@@ -550,6 +574,7 @@ function parseOffers(json, queryOrigin, queryDest) {
       category: a.vehicle_category_name || a.category || null,
       minAge: a.min_drivers_age ?? a.minimum_age ?? null,
       minLicence: a.min_licence_age ?? null,
+      fuel: extractFuel(item, idx),
       price,
       raw: item,
     });
@@ -906,6 +931,13 @@ function filtered() {
   return { list, outbound, returns, countryCounts };
 }
 
+// Zeitfenster zwischen frühester Abholung und spätester Abgabe in Tagen
+function windowDays(o) {
+  const s = parseDate(o.start), e = parseDate(o.end);
+  return s && e ? (e - s) / 864e5 : null;
+}
+const daysText = (d) => d == null ? "–" : (Math.round(d * 10) / 10).toLocaleString("de-DE") + " T.";
+
 const priceText = (p) => p?.amount == null ? "Preis ?" : p.amount.toLocaleString("de-DE", { style: "currency", currency: p.currency || "EUR" });
 
 // Zielländer-Auswahl (leer = alle)
@@ -971,6 +1003,8 @@ function renderCards() {
       <div class="facts">
         <div><span>Abholung ab</span> ${fmtDT(s)}</div>
         <div><span>Abgabe bis</span> ${fmtDT(e)}</div>
+        <div><span>Zeitfenster</span> ${daysText(windowDays(o))}</div>
+        ${o.fuel ? `<div><span>Tank</span> ${esc(fuelText(o.fuel))}</div>` : ""}
         ${o.freeKm != null ? `<div><span>Freikilometer</span> ${esc(o.freeKm)}</div>` : ""}
         ${o.distanceKm != null ? `<div><span>Strecke</span> ca. ${esc(o.distanceKm)} km</div>` : ""}
         ${o.vehicle ? `<div><span>Fahrzeug</span> ${esc(o.vehicle)}</div>` : ""}
@@ -1027,6 +1061,7 @@ const COLS = [
   ["land", "Land", (o) => countryName(o.destCountry)],
   ["start", "Abholung ab", (o) => parseDate(o.start)?.getTime() ?? 0],
   ["end", "Abgabe bis", (o) => parseDate(o.end)?.getTime() ?? 0],
+  ["days", "Tage", (o) => windowDays(o) ?? -1],
   ["price", "Preis", (o) => o.price?.amount ?? 1e9],
   ["vehicle", "Fahrzeug", (o) => (isCamper(o) ? "0" : "1") + (o.vehicle || "")],
   ["freekm", "Frei-km", (o) => o.freeKm ?? -1],
@@ -1048,6 +1083,7 @@ function renderTable(list) {
       <td><span class="badge land">${esc(countryName(o.destCountry))}</span></td>
       <td class="dt">${fmtDT(parseDate(o.start))}</td>
       <td class="dt">${fmtDT(parseDate(o.end))}</td>
+      <td class="num" title="Zeitfenster zwischen frühester Abholung und spätester Abgabe">${daysText(windowDays(o))}</td>
       <td class="num" style="color:var(--accent);font-weight:600">${esc(priceText(o.price))}</td>
       <td>${esc(o.vehicle || o.category || "–")} ${isCamper(o) ? '<span class="badge" style="background:#e0e7ff;color:#3730a3">Camper</span>' : ""}${newSet.has(o.key) ? ' <span class="badge">neu</span>' : ""}</td>
       <td class="num">${o.freeKm ?? "–"}</td>
@@ -1057,7 +1093,7 @@ function renderTable(list) {
     if (!openRows.has(o.key + "|" + o.originRef + "|" + o.destRef)) return main;
     const rets = o.returns.map((r) => `<div class="ret">↩ <b>${esc(r.originName)} → ${esc(r.destName)}</b> · ${dealLine(r)}</div>`).join("") || "<div>Keine passende Rückfahrt gefunden.</div>";
     return main + `<tr class="detail"><td colspan="${COLS.length}">
-      ${o.category ? `Kategorie: ${esc(o.category)} · ` : ""}${o.minLicence != null ? `Führerschein seit ${esc(o.minLicence)} J. · ` : ""}${o.validUntil ? `Angebot gültig bis ${fmtDT(parseDate(o.validUntil))} · ` : ""}
+      ${o.fuel ? `<b>Tankregelung:</b> ${esc(fuelText(o.fuel))} · ` : ""}${o.category ? `Kategorie: ${esc(o.category)} · ` : ""}${o.minLicence != null ? `Führerschein seit ${esc(o.minLicence)} J. · ` : ""}${o.validUntil ? `Angebot gültig bis ${fmtDT(parseDate(o.validUntil))} · ` : ""}
       Buchen auf <a href="https://movacar.com/" target="_blank" rel="noopener">movacar.com</a>${o.refkey ? ` (Referenz ${esc(o.refkey)})` : ""}
       <div class="returns"><h3>Mögliche Rückfahrten</h3>${rets}</div></td></tr>`;
   }).join("");
@@ -1088,7 +1124,7 @@ function geoOf(ref, fallback) {
 }
 
 function dealLine(o) {
-  return `${fmtD(parseDate(o.start))} – ${fmtD(parseDate(o.end))} · ${esc(priceText(o.price))}${o.vehicle ? " · " + esc(o.vehicle) : ""}${isCamper(o) ? " · <b>Camper</b>" : ""}${o.freeKm != null ? " · " + esc(o.freeKm) + " Frei-km" : ""}`;
+  return `${fmtD(parseDate(o.start))} – ${fmtD(parseDate(o.end))} (${daysText(windowDays(o))}) · ${esc(priceText(o.price))}${o.vehicle ? " · " + esc(o.vehicle) : ""}${isCamper(o) ? " · <b>Camper</b>" : ""}${o.freeKm != null ? " · " + esc(o.freeKm) + " Frei-km" : ""}`;
 }
 
 async function renderMap(list) {
@@ -1162,8 +1198,8 @@ function renderSamples() {
 
 function exportCsv() {
   const { list } = filtered();
-  const cols = ["Start", "Ziel", "Abholung ab", "Abgabe bis", "Preis", "Freikilometer", "Strecke km", "Fahrzeug", "Mindestalter", "Rückfahrten", "Erste Rückfahrt", "Angebots-ID", "Referenz"];
-  const rows = list.map((o) => [o.originName, o.destName, o.start, o.end, o.price?.amount, o.freeKm, o.distanceKm, o.vehicle, o.minAge,
+  const cols = ["Start", "Ziel", "Abholung ab", "Abgabe bis", "Tage", "Tankregelung", "Preis", "Freikilometer", "Strecke km", "Fahrzeug", "Mindestalter", "Rückfahrten", "Erste Rückfahrt", "Angebots-ID", "Referenz"];
+  const rows = list.map((o) => [o.originName, o.destName, o.start, o.end, windowDays(o) != null ? (Math.round(windowDays(o) * 10) / 10).toString().replace(".", ",") : "", fuelText(o.fuel) || "", o.price?.amount, o.freeKm, o.distanceKm, o.vehicle, o.minAge,
     o.returns.length, o.returns[0] ? `${o.returns[0].originName} → ${o.returns[0].destName} ab ${o.returns[0].start}` : "", o.offerId, o.refkey]);
   const csv = "﻿" + [cols, ...rows].map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
   const a = document.createElement("a");
